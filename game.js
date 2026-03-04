@@ -96,7 +96,7 @@ class Player {
     constructor() {
         this.width = 40;
         this.height = 40;
-        this.resetPosition(0);
+        this.resetPosition(100);
         this.color = '#e94560';
         this.facing = 'right';
     }
@@ -132,7 +132,6 @@ class Player {
             this.velocity.x *= friction;
         }
         if (this.position.y > canvas.height + 100) {
-            // 現在のセクションの最初に戻る
             const section = Math.floor(this.position.x / 2500);
             this.resetPosition(section * 2500 + 100);
         }
@@ -141,18 +140,21 @@ class Player {
 }
 
 class Platform {
-    constructor({ x, y, width, height, color = '#16213e' }) {
+    constructor({ x, y, width, height, color = '#16213e', stroke = true }) {
         this.position = { x, y };
         this.width = width;
         this.height = height;
         this.color = color;
+        this.stroke = stroke;
     }
     draw() {
         ctx.fillStyle = this.color;
         ctx.fillRect(this.position.x, this.position.y, this.width, this.height);
-        ctx.strokeStyle = '#0f3460';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(this.position.x, this.position.y, this.width, this.height);
+        if (this.stroke) {
+            ctx.strokeStyle = '#0f3460';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(this.position.x, this.position.y, this.width, this.height);
+        }
     }
 }
 
@@ -174,11 +176,21 @@ function initGame() {
     scrollOffset = 0;
     generatedUntilX = 0;
     generatedBehindX = 0;
+
+    // --- ステージ1の構造改良 ---
+    // スタート地点の床 (x=0から右へ)
+    platforms.push(new Platform({ x: 0, y: 500, width: 800, height: 100, stroke: false }));
     
-    // 隠しルート：左側のステージ1000ゴール
-    platforms.push(new Platform({ x: -800, y: 200, width: 300, height: 600, color: '#f9d371' }));
+    // 左端の巨大な厚壁 (厚さ200px)
+    platforms.push(new Platform({ x: -200, y: 0, width: 200, height: 600, color: '#0f3460' }));
     
-    createNextStage(true); // 右側に生成
+    // 壁の向こう側の床 (壁の左端 x=-200 に接続)
+    platforms.push(new Platform({ x: -1500, y: 500, width: 1300, height: 100, stroke: false }));
+    
+    // 隠しゴール (赤い巨大な塔)
+    platforms.push(new Platform({ x: -1400, y: 100, width: 300, height: 600, color: '#ff0000' }));
+    
+    generatedUntilX = 800; // 次のステージ生成の開始点
 }
 
 function createNextStage(forward = true) {
@@ -186,15 +198,14 @@ function createNextStage(forward = true) {
     const stageWidth = 2500;
     const stageNum = Math.floor(startX / 2500) + 1;
     
-    // ステージ生成
+    // 通常のステージ生成
     platforms.push(new Platform({ x: startX, y: 500, width: 800, height: 100 }));
     platforms.push(new Platform({ x: startX + 900, y: 450, width: 400, height: 40 }));
     platforms.push(new Platform({ x: startX + 1400, y: 350, width: 400, height: 40 }));
     platforms.push(new Platform({ x: startX + 1900, y: 450, width: 500, height: 40 }));
     
-    // 中間地点
-    if (startX !== -2500) { // 隠しゴールの場所と被らないように
-        platforms.push(new Platform({ x: startX + 2400, y: 200, width: 100, height: 600, color: '#f9d371' }));
+    if (startX >= 0) {
+        platforms.push(new Platform({ x: startX + 2400, y: 200, width: 100, height: 600, color: '#ff0000' }));
     }
 
     const speedBonus = Math.abs(stageNum) * 0.2;
@@ -218,6 +229,39 @@ homeBtn.addEventListener('click', () => {
     homeBtn.classList.add('hidden');
 });
 
+function drawInGameArrow(x, y) {
+    const time = Date.now() / 200;
+    const offset = Math.sin(time) * 20;
+    ctx.save();
+    ctx.fillStyle = '#ff0000';
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = 'red';
+    ctx.font = 'bold 120px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('→', x + offset, y);
+    ctx.font = 'bold 24px sans-serif';
+    ctx.fillText('GO THIS WAY', x + offset, y + 40);
+    ctx.restore();
+}
+
+function drawCheckpointText(x, y, stageNum) {
+    const time = Date.now() / 300;
+    const floatY = Math.sin(time) * 15;
+    ctx.save();
+    ctx.fillStyle = '#ffffff';
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = '#ff0000';
+    ctx.strokeStyle = '#ff0000';
+    ctx.lineWidth = 2;
+    ctx.font = 'bold 60px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.strokeText(`STAGE ${stageNum} CLEAR!`, x, y + floatY);
+    ctx.fillText(`STAGE ${stageNum} CLEAR!`, x, y + floatY);
+    ctx.font = 'bold 20px sans-serif';
+    ctx.fillText('KEEP GOING →', x, y + floatY + 40);
+    ctx.restore();
+}
+
 function animate() {
     requestAnimationFrame(animate);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -230,7 +274,6 @@ function animate() {
 
     if (gameState === 'START') return;
 
-    // 動的ステージ生成
     if (player.position.x + 1500 > generatedUntilX) createNextStage(true);
     if (player.position.x - 1500 < generatedBehindX) createNextStage(false);
 
@@ -238,8 +281,19 @@ function animate() {
     scrollOffset = player.position.x - canvas.width / 3;
     ctx.translate(-scrollOffset, 0);
 
-    platforms.forEach(platform => platform.draw());
+    for (let x = 0; x < generatedUntilX; x += 2500) {
+        drawInGameArrow(x + 400, 400);
+    }
 
+    for (let x = 0; x < generatedUntilX; x += 2500) {
+        if (x === 0 && player.position.x < 1000) continue;
+        const stageNum = Math.floor(x / 2500);
+        if (stageNum > 0) {
+            drawCheckpointText(x - 50, 150, stageNum);
+        }
+    }
+
+    platforms.forEach(platform => platform.draw());
     enemies.forEach(enemy => {
         enemy.update();
         if (enemy.alive && 
@@ -302,10 +356,8 @@ function animate() {
 
     ctx.restore();
 
-    // UI更新（ループ計算）
     let currentStageNum;
     if (player.position.x < -100) {
-        // 左に行くとステージ1000
         currentStageNum = 1000;
     } else {
         currentStageNum = Math.floor(player.position.x / 2500) + 1;
@@ -314,14 +366,16 @@ function animate() {
     stageDisplay.innerText = `STAGE ${currentStageNum}`;
     distDisplay.innerText = `${Math.floor(Math.abs(player.position.x))}m`;
 
-    // ゴール判定
     if (currentStageNum >= 1000 && player.position.y < 300) {
         ctx.save();
-        ctx.fillStyle = '#f9d371';
+        ctx.fillStyle = '#ffffff';
+        ctx.strokeStyle = '#ff0000';
+        ctx.lineWidth = 4;
         ctx.font = 'bold 72px sans-serif';
         ctx.textAlign = 'center';
         ctx.shadowBlur = 20;
-        ctx.shadowColor = 'gold';
+        ctx.shadowColor = 'red';
+        ctx.strokeText('SECRET GOAL!!', canvas.width / 2, canvas.height / 2);
         ctx.fillText('SECRET GOAL!!', canvas.width / 2, canvas.height / 2);
         ctx.font = '24px sans-serif';
         ctx.fillText('あなたは世界の裏側に辿り着いた...', canvas.width / 2, canvas.height / 2 + 60);

@@ -30,6 +30,21 @@
             left: 20px;
             color: white;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            font-size: 1.2rem;
+        }
+        .arrow {
+            font-size: 3.5rem; /* さらに巨大化 */
+            color: #ff0000; /* 真っ赤 */
+            vertical-align: middle;
+            display: inline-block;
+            margin: 0 10px;
+            font-weight: 900;
+            text-shadow: 0 0 15px rgba(255, 0, 0, 0.8); /* 赤い光を放つ */
+            animation: moveArrow 0.6s infinite alternate; /* 左右に動かす */
+        }
+        @keyframes moveArrow {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(15px); opacity: 0.7; }
         }
         .goal-indicator {
             position: absolute;
