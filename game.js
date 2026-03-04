@@ -104,7 +104,7 @@ class Player {
         this.position = { x: startX, y: 100 };
         this.velocity = { x: 0, y: 0 };
         this.jumpCount = 0;
-        this.maxJumps = 2;
+        this.maxJumps = 2; // 2回に戻す
         this.speed = 7;
         this.jumpPower = 12;
         this.onGround = false;
@@ -177,30 +177,21 @@ function initGame() {
     projectiles = [];
     scrollOffset = 0;
 
-    // 左側の進入不可エリア
-    platforms.push(new Platform({ x: -2000, y: 0, width: 2000, height: 1000, color: '#0f3460', stroke: false }));
-    // スタート
+    platforms.push(new Platform({ x: -2000, y: 100, width: 2000, height: 900, color: '#0f3460', stroke: false }));
     platforms.push(new Platform({ x: 0, y: 500, width: 600, height: 200 }));
-    // 最初の段差 (低め)
     platforms.push(new Platform({ x: 600, y: 400, width: 400, height: 300 }));
-    // 低地
-    platforms.push(new Platform({ x: 1000, y: 550, width: 600, height: 200 }));
-    // 平地 + 敵
+    platforms.push(new Platform({ x: 1000, y: 550, width: 250, height: 200 }));
+    platforms.push(new Platform({ x: 1400, y: 550, width: 200, height: 200 }));
     platforms.push(new Platform({ x: 1600, y: 550, width: 1500, height: 200 }));
     enemies.push(new Enemy(1800, 510, 200, 2));
     enemies.push(new Enemy(2200, 510, 150, 3));
     enemies.push(new Enemy(2500, 510, 200, 4));
     enemies.push(new Enemy(2800, 510, 100, 5));
-    // 階段 (1段目)
     platforms.push(new Platform({ x: 3100, y: 400, width: 400, height: 300 }));
-    // 階段 (2段目)
     platforms.push(new Platform({ x: 3500, y: 250, width: 400, height: 450 }));
-    // 階段 (3段目 - さらに高く)
     platforms.push(new Platform({ x: 3900, y: 100, width: 400, height: 600 }));
-    // 最終最高直線 (しばらく同じ高さ - 6500mまで延長)
     platforms.push(new Platform({ x: 4300, y: 100, width: 2200, height: 600 }));
 
-    // ゴール (5200m地点に配置)
     goalObject = { x: 5200, y: -300, width: 100, height: 400, color: '#ff0000' };
 }
 
@@ -277,7 +268,7 @@ function animate() {
     drawInGameArrow(1800, 450);
     drawJumpHint(3050, 380);
     drawJumpHint(3450, 230);
-    drawJumpHint(3850, 80); // 3段目へのヒント追加
+    drawJumpHint(3850, 80);
 
     if (goalObject) {
         ctx.fillStyle = goalObject.color;
