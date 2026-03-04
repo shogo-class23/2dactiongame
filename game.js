@@ -104,7 +104,7 @@ class Player {
         this.position = { x: startX, y: 100 };
         this.velocity = { x: 0, y: 0 };
         this.jumpCount = 0;
-        this.maxJumps = 2; // 2回に戻す
+        this.maxJumps = 2;
         this.speed = 7;
         this.jumpPower = 12;
         this.onGround = false;
@@ -131,10 +131,8 @@ class Player {
         }
         this.position.x += this.velocity.x;
         this.position.y += this.velocity.y;
-        if (this.position.x < 0) {
-            this.position.x = 0;
-            this.velocity.x = 0;
-        }
+        
+        // 画面外に落ちた時の処理
         if (this.position.y > canvas.height + 100) {
             this.resetPosition(100);
         }
@@ -190,7 +188,8 @@ function initGame() {
     platforms.push(new Platform({ x: 3100, y: 400, width: 400, height: 300 }));
     platforms.push(new Platform({ x: 3500, y: 250, width: 400, height: 450 }));
     platforms.push(new Platform({ x: 3900, y: 100, width: 400, height: 600 }));
-    platforms.push(new Platform({ x: 4300, y: 100, width: 2200, height: 600 }));
+    platforms.push(new Platform({ x: 4300, y: 100, width: 1200, height: 600 }));
+    platforms.push(new Platform({ x: 5700, y: 100, width: 800, height: 600 }));
 
     goalObject = { x: 5200, y: -300, width: 100, height: 400, color: '#ff0000' };
 }
@@ -315,20 +314,25 @@ function animate() {
         ) {
             const prevX = player.position.x - player.velocity.x;
             const prevY = player.position.y - player.velocity.y;
-            if (prevY + player.height <= platform.position.y) {
+
+            if (prevY + player.height <= platform.position.y + 5) {
                 player.velocity.y = 0;
                 player.onGround = true;
                 player.jumpCount = 0;
                 player.position.y = platform.position.y - player.height;
-            } else if (prevY >= platform.position.y + platform.height) {
+            } 
+            else if (player.position.y + player.height > platform.position.y + 5 && player.position.y < platform.position.y + platform.height - 5) {
+                if (prevX + player.width <= platform.position.x) {
+                    player.velocity.x = 0;
+                    player.position.x = platform.position.x - player.width;
+                } else if (prevX >= platform.position.x + platform.width) {
+                    player.velocity.x = 0;
+                    player.position.x = platform.position.x + platform.width;
+                }
+            }
+            else if (prevY >= platform.position.y + platform.height - 5) {
                 player.velocity.y = 0;
                 player.position.y = platform.position.y + platform.height;
-            } else if (prevX + player.width <= platform.position.x) {
-                player.velocity.x = 0;
-                player.position.x = platform.position.x - player.width;
-            } else if (prevX >= platform.position.x + platform.width) {
-                player.velocity.x = 0;
-                player.position.x = platform.position.x + platform.width;
             }
         }
     });
