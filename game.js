@@ -3,8 +3,6 @@ const ctx = canvas.getContext('2d');
 const startScreen = document.getElementById('start-screen');
 const startBtn = document.getElementById('start-btn');
 const homeBtn = document.getElementById('home-btn');
-const stageDisplay = document.getElementById('stage-display');
-const distDisplay = document.getElementById('dist-display');
 
 function resize() {
     canvas.width = window.innerWidth;
@@ -15,8 +13,7 @@ resize();
 
 let gameState = 'START';
 let missTimer = 0;
-let currentStage = 1;
-let lastGoalX = -1; // 最後に通過したゴールのX座標（重複カウント防止）
+let lastGoalX = -1;
 
 const keys = { right: false, left: false, up: false, shoot: false };
 window.addEventListener('keydown', (e) => {
@@ -139,7 +136,6 @@ class Player {
         }
         this.position.x += this.velocity.x;
         this.position.y += this.velocity.y;
-        
         if (this.position.y > canvas.height + 100) {
             triggerMiss();
         }
@@ -170,13 +166,14 @@ let player = new Player();
 let platforms = [];
 let enemies = [];
 let projectiles = [];
-let goalObjects = []; // ステージごとのゴールを管理
+let goalObjects = [];
 let scrollOffset = 0;
 let lastJumpKeyState = false;
 let lastShootKeyState = false;
 let generatedUntilX = 0;
+let generatedBehindX = 0;
 
-const STAGE_LENGTH = 6500; // 1ステージの長さ
+const STAGE_LENGTH = 6500;
 
 function initGame() {
     player = new Player();
@@ -186,47 +183,37 @@ function initGame() {
     goalObjects = [];
     scrollOffset = 0;
     missTimer = 0;
-    currentStage = 1;
     generatedUntilX = 0;
+    generatedBehindX = 0;
     lastGoalX = -1;
 
-    // 最初の壁
-    platforms.push(new Platform({ x: -2000, y: 100, width: 2000, height: 900, color: '#0f3460', stroke: false }));
-    
-    // 最初の数ステージ分を生成
     createStageSegment(0);
     createStageSegment(STAGE_LENGTH);
+    createStageSegment(-STAGE_LENGTH);
 }
 
 function createStageSegment(startX) {
-    const stageNum = Math.floor(startX / STAGE_LENGTH) + 1;
-    const speedBonus = stageNum * 0.3;
+    const stageIndex = Math.floor(startX / STAGE_LENGTH);
+    const displayStage = ((stageIndex % 1000) + 1000) % 1000 + 1;
+    const speedBonus = (displayStage / 100);
 
-    // 1. スタート
     platforms.push(new Platform({ x: startX, y: 500, width: 600, height: 200 }));
-    // 2. 段差 (低め)
     platforms.push(new Platform({ x: startX + 600, y: 400, width: 400, height: 300 }));
-    // 3. 低地+穴
     platforms.push(new Platform({ x: startX + 1000, y: 550, width: 250, height: 200 }));
     platforms.push(new Platform({ x: startX + 1400, y: 550, width: 200, height: 200 }));
-    // 4. 平地 + 敵
     platforms.push(new Platform({ x: startX + 1600, y: 550, width: 1500, height: 200 }));
     enemies.push(new Enemy(startX + 1800, 510, 200, 2 + speedBonus));
-    enemies.push(new Enemy(startX + 2200, 510, 150, 3 + speedBonus));
     enemies.push(new Enemy(startX + 2500, 510, 200, 4 + speedBonus));
-    enemies.push(new Enemy(startX + 2800, 510, 100, 5 + speedBonus));
-    // 5. 階段
     platforms.push(new Platform({ x: startX + 3100, y: 400, width: 400, height: 300 }));
     platforms.push(new Platform({ x: startX + 3500, y: 250, width: 400, height: 450 }));
     platforms.push(new Platform({ x: startX + 3900, y: 100, width: 400, height: 600 }));
-    // 6. 最終直線
     platforms.push(new Platform({ x: startX + 4300, y: 100, width: 1200, height: 600 }));
     platforms.push(new Platform({ x: startX + 5700, y: 100, width: 800, height: 600 }));
 
-    // ゴール (5200m付近)
-    goalObjects.push({ x: startX + 5200, y: -300, width: 100, height: 400, color: '#ff0000', stage: stageNum });
+    goalObjects.push({ x: startX + 5200, y: -300, width: 100, height: 400, color: '#ff0000', stage: displayStage });
 
-    generatedUntilX = startX + STAGE_LENGTH;
+    if (startX >= generatedUntilX) generatedUntilX = startX + STAGE_LENGTH;
+    if (startX <= generatedBehindX) generatedBehindX = startX;
 }
 
 function triggerMiss() {
@@ -234,15 +221,18 @@ function triggerMiss() {
     missTimer = 60;
 }
 
-function drawInGameArrow(x, y) {
+function drawInGameArrow(x, y, stageNum) {
     const time = Date.now() / 200;
     const offset = Math.sin(time) * 20;
     ctx.save();
+    ctx.fillStyle = 'white';
+    ctx.font = 'bold 30px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`STAGE ${stageNum}`, x + offset, y - 100);
     ctx.fillStyle = '#ff0000';
     ctx.shadowBlur = 20;
     ctx.shadowColor = 'red';
     ctx.font = 'bold 120px sans-serif';
-    ctx.textAlign = 'center';
     ctx.fillText('→', x + offset, y);
     ctx.restore();
 }
@@ -299,10 +289,8 @@ function animate() {
 
     if (gameState === 'START') return;
 
-    // 先のステージを生成
-    if (player.position.x + 3000 > generatedUntilX) {
-        createStageSegment(generatedUntilX);
-    }
+    if (player.position.x + 3000 > generatedUntilX) createStageSegment(generatedUntilX);
+    if (player.position.x - 3000 < generatedBehindX) createStageSegment(generatedBehindX - STAGE_LENGTH);
 
     ctx.save();
     if (missTimer > 40) ctx.translate(Math.random() * 10 - 5, Math.random() * 10 - 5);
@@ -310,15 +298,15 @@ function animate() {
     scrollOffset = player.position.x - canvas.width / 3;
     ctx.translate(-scrollOffset, 0);
 
-    // ヒントと矢印の描画（現在位置に近いもののみ）
-    const baseOffset = Math.floor(player.position.x / STAGE_LENGTH) * STAGE_LENGTH;
-    drawInGameArrow(baseOffset + 200, 400);
-    drawInGameArrow(baseOffset + 1800, 450);
-    drawJumpHint(baseOffset + 3050, 380);
-    drawJumpHint(baseOffset + 3450, 230);
-    drawJumpHint(baseOffset + 3850, 80);
+    const currentSegmentIndex = Math.floor(player.position.x / STAGE_LENGTH);
+    const currentSegmentStart = currentSegmentIndex * STAGE_LENGTH;
+    const currentDisplayStage = ((currentSegmentIndex % 1000) + 1000) % 1000 + 1;
+    
+    drawInGameArrow(currentSegmentStart + 200, 400, currentDisplayStage);
+    drawJumpHint(currentSegmentStart + 3050, 380);
+    drawJumpHint(currentSegmentStart + 3450, 230);
+    drawJumpHint(currentSegmentStart + 3850, 80);
 
-    // ゴールの描画
     goalObjects.forEach(goal => {
         ctx.fillStyle = goal.color;
         ctx.fillRect(goal.x, goal.y, goal.width, goal.height);
@@ -414,32 +402,23 @@ function animate() {
         ctx.restore();
         missTimer--;
         if (missTimer === 0) {
-            // 現在のステージの最初に戻る
             player.resetPosition(Math.floor(player.position.x / STAGE_LENGTH) * STAGE_LENGTH + 100);
         }
     }
 
-    // ステージと距離の表示
-    stageDisplay.innerText = `STAGE ${currentStage}`;
-    distDisplay.innerText = `${Math.floor(player.position.x)}m`;
-
-    // ゴール判定
     goalObjects.forEach(goal => {
         if (player.position.x < goal.x + goal.width &&
             player.position.x + player.width > goal.x &&
             player.position.y < goal.y + goal.height &&
             player.position.y + player.height > goal.y) {
-            if (lastGoalX !== goal.x) {
-                currentStage = goal.stage + 1;
-                lastGoalX = goal.x;
-            }
-            // クリアメッセージ（一瞬表示される）
             ctx.save();
             ctx.fillStyle = '#ffffff';
             ctx.strokeStyle = '#ff0000';
             ctx.lineWidth = 4;
             ctx.font = 'bold 72px sans-serif';
             ctx.textAlign = 'center';
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = 'red';
             ctx.strokeText(`STAGE ${goal.stage} CLEAR!!`, canvas.width / 2, canvas.height / 2);
             ctx.fillText(`STAGE ${goal.stage} CLEAR!!`, canvas.width / 2, canvas.height / 2);
             ctx.restore();
