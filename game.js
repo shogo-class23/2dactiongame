@@ -131,9 +131,14 @@ class Player {
         } else {
             this.velocity.x *= friction;
         }
+        
+        if (this.position.x < 0) {
+            this.position.x = 0;
+            this.velocity.x = 0;
+        }
+
         if (this.position.y > canvas.height + 100) {
-            const section = Math.floor(this.position.x / 2500);
-            this.resetPosition(section * 2500 + 100);
+            this.resetPosition(100);
         }
         this.draw();
     }
@@ -165,8 +170,6 @@ let projectiles = [];
 let scrollOffset = 0;
 let lastJumpKeyState = false;
 let lastShootKeyState = false;
-let generatedUntilX = 0;
-let generatedBehindX = 0;
 
 function initGame() {
     player = new Player();
@@ -174,48 +177,58 @@ function initGame() {
     enemies = [];
     projectiles = [];
     scrollOffset = 0;
-    generatedUntilX = 0;
-    generatedBehindX = 0;
 
-    // --- ステージ1の構造改良 ---
-    // スタート地点の床 (x=0から右へ)
-    platforms.push(new Platform({ x: 0, y: 500, width: 800, height: 100, stroke: false }));
-    
-    // 左端の巨大な厚壁 (厚さ200px)
-    platforms.push(new Platform({ x: -200, y: 0, width: 200, height: 600, color: '#0f3460' }));
-    
-    // 壁の向こう側の床 (壁の左端 x=-200 に接続)
-    platforms.push(new Platform({ x: -1500, y: 500, width: 1300, height: 100, stroke: false }));
-    
-    // 隠しゴール (赤い巨大な塔)
-    platforms.push(new Platform({ x: -1400, y: 100, width: 300, height: 600, color: '#ff0000' }));
-    
-    generatedUntilX = 800; // 次のステージ生成の開始点
+    // 1. 左半分の壁
+    platforms.push(new Platform({ x: -2000, y: 0, width: 2000, height: 1000, color: '#0f3460', stroke: false }));
+    // 2. スタート
+    platforms.push(new Platform({ x: 0, y: 500, width: 600, height: 200 }));
+    // 3. 段差
+    platforms.push(new Platform({ x: 600, y: 350, width: 400, height: 350 }));
+    // 4. 低地
+    platforms.push(new Platform({ x: 1000, y: 550, width: 600, height: 200 }));
+    // 5. 平地+敵
+    platforms.push(new Platform({ x: 1600, y: 550, width: 1500, height: 200 }));
+    enemies.push(new Enemy(1800, 510, 200, 2));
+    enemies.push(new Enemy(2200, 510, 150, 3));
+    enemies.push(new Enemy(2500, 510, 200, 4));
+    enemies.push(new Enemy(2800, 510, 100, 5));
+    // 6. 階段
+    platforms.push(new Platform({ x: 3100, y: 400, width: 400, height: 300 }));
+    platforms.push(new Platform({ x: 3500, y: 250, width: 400, height: 450 }));
+    // 7. 最終直線
+    platforms.push(new Platform({ x: 3900, y: 250, width: 1000, height: 450 }));
+    // 8. ゴール
+    platforms.push(new Platform({ x: 4800, y: -150, width: 100, height: 400, color: '#ff0000' }));
 }
 
-function createNextStage(forward = true) {
-    const startX = forward ? generatedUntilX : generatedBehindX - 2500;
-    const stageWidth = 2500;
-    const stageNum = Math.floor(startX / 2500) + 1;
-    
-    // 通常のステージ生成
-    platforms.push(new Platform({ x: startX, y: 500, width: 800, height: 100 }));
-    platforms.push(new Platform({ x: startX + 900, y: 450, width: 400, height: 40 }));
-    platforms.push(new Platform({ x: startX + 1400, y: 350, width: 400, height: 40 }));
-    platforms.push(new Platform({ x: startX + 1900, y: 450, width: 500, height: 40 }));
-    
-    if (startX >= 0) {
-        platforms.push(new Platform({ x: startX + 2400, y: 200, width: 100, height: 600, color: '#ff0000' }));
-    }
-
-    const speedBonus = Math.abs(stageNum) * 0.2;
-    enemies.push(new Enemy(startX + 400, 460, 200, 2 + speedBonus));
-    enemies.push(new Enemy(startX + 1500, 310, 200, 3 + speedBonus));
-
-    if (forward) generatedUntilX += stageWidth;
-    else generatedBehindX -= stageWidth;
+function drawInGameArrow(x, y) {
+    const time = Date.now() / 200;
+    const offset = Math.sin(time) * 20;
+    ctx.save();
+    ctx.fillStyle = '#ff0000';
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = 'red';
+    ctx.font = 'bold 120px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('→', x + offset, y);
+    ctx.restore();
 }
 
+function drawCheckpointText(x, y) {
+    ctx.save();
+    ctx.fillStyle = '#ffffff';
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = '#ff0000';
+    ctx.strokeStyle = '#ff0000';
+    ctx.lineWidth = 2;
+    ctx.font = 'bold 60px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.strokeText(`GOAL!!`, x, y);
+    ctx.fillText(`GOAL!!`, x, y);
+    ctx.restore();
+}
+
+// イベントリスナーの追加
 startBtn.addEventListener('click', () => {
     gameState = 'PLAYING';
     startScreen.classList.add('hidden');
@@ -229,39 +242,6 @@ homeBtn.addEventListener('click', () => {
     homeBtn.classList.add('hidden');
 });
 
-function drawInGameArrow(x, y) {
-    const time = Date.now() / 200;
-    const offset = Math.sin(time) * 20;
-    ctx.save();
-    ctx.fillStyle = '#ff0000';
-    ctx.shadowBlur = 20;
-    ctx.shadowColor = 'red';
-    ctx.font = 'bold 120px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('→', x + offset, y);
-    ctx.font = 'bold 24px sans-serif';
-    ctx.fillText('GO THIS WAY', x + offset, y + 40);
-    ctx.restore();
-}
-
-function drawCheckpointText(x, y, stageNum) {
-    const time = Date.now() / 300;
-    const floatY = Math.sin(time) * 15;
-    ctx.save();
-    ctx.fillStyle = '#ffffff';
-    ctx.shadowBlur = 15;
-    ctx.shadowColor = '#ff0000';
-    ctx.strokeStyle = '#ff0000';
-    ctx.lineWidth = 2;
-    ctx.font = 'bold 60px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.strokeText(`STAGE ${stageNum} CLEAR!`, x, y + floatY);
-    ctx.fillText(`STAGE ${stageNum} CLEAR!`, x, y + floatY);
-    ctx.font = 'bold 20px sans-serif';
-    ctx.fillText('KEEP GOING →', x, y + floatY + 40);
-    ctx.restore();
-}
-
 function animate() {
     requestAnimationFrame(animate);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -274,24 +254,12 @@ function animate() {
 
     if (gameState === 'START') return;
 
-    if (player.position.x + 1500 > generatedUntilX) createNextStage(true);
-    if (player.position.x - 1500 < generatedBehindX) createNextStage(false);
-
     ctx.save();
     scrollOffset = player.position.x - canvas.width / 3;
     ctx.translate(-scrollOffset, 0);
 
-    for (let x = 0; x < generatedUntilX; x += 2500) {
-        drawInGameArrow(x + 400, 400);
-    }
-
-    for (let x = 0; x < generatedUntilX; x += 2500) {
-        if (x === 0 && player.position.x < 1000) continue;
-        const stageNum = Math.floor(x / 2500);
-        if (stageNum > 0) {
-            drawCheckpointText(x - 50, 150, stageNum);
-        }
-    }
+    drawInGameArrow(200, 400);
+    drawInGameArrow(1800, 450);
 
     platforms.forEach(platform => platform.draw());
     enemies.forEach(enemy => {
@@ -301,7 +269,7 @@ function animate() {
             player.position.x + player.width > enemy.position.x &&
             player.position.y < enemy.position.y + enemy.height &&
             player.position.y + player.height > enemy.position.y) {
-            player.resetPosition(Math.floor(player.position.x / 2500) * 2500 + 100);
+            player.resetPosition(100);
         }
     });
 
@@ -354,19 +322,13 @@ function animate() {
     }
     lastShootKeyState = keys.shoot;
 
+    drawCheckpointText(4850, -200);
     ctx.restore();
 
-    let currentStageNum;
-    if (player.position.x < -100) {
-        currentStageNum = 1000;
-    } else {
-        currentStageNum = Math.floor(player.position.x / 2500) + 1;
-    }
-    
-    stageDisplay.innerText = `STAGE ${currentStageNum}`;
-    distDisplay.innerText = `${Math.floor(Math.abs(player.position.x))}m`;
+    stageDisplay.innerText = `STAGE 1`;
+    distDisplay.innerText = `${Math.floor(player.position.x)}m`;
 
-    if (currentStageNum >= 1000 && player.position.y < 300) {
+    if (player.position.x > 4800) {
         ctx.save();
         ctx.fillStyle = '#ffffff';
         ctx.strokeStyle = '#ff0000';
@@ -375,12 +337,11 @@ function animate() {
         ctx.textAlign = 'center';
         ctx.shadowBlur = 20;
         ctx.shadowColor = 'red';
-        ctx.strokeText('SECRET GOAL!!', canvas.width / 2, canvas.height / 2);
-        ctx.fillText('SECRET GOAL!!', canvas.width / 2, canvas.height / 2);
-        ctx.font = '24px sans-serif';
-        ctx.fillText('あなたは世界の裏側に辿り着いた...', canvas.width / 2, canvas.height / 2 + 60);
+        ctx.strokeText('STAGE 1 CLEAR!!', canvas.width / 2, canvas.height / 2);
+        ctx.fillText('STAGE 1 CLEAR!!', canvas.width / 2, canvas.height / 2);
         ctx.restore();
     }
 }
 
+initGame(); // 初回のみ実行して背景をセット
 animate();
