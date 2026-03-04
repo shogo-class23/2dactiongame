@@ -120,8 +120,6 @@ class Player {
     }
     update() {
         this.velocity.y += gravity;
-        this.position.x += this.velocity.x;
-        this.position.y += this.velocity.y;
         if (keys.right) {
             this.velocity.x = this.speed;
             this.facing = 'right';
@@ -131,12 +129,12 @@ class Player {
         } else {
             this.velocity.x *= friction;
         }
-        
+        this.position.x += this.velocity.x;
+        this.position.y += this.velocity.y;
         if (this.position.x < 0) {
             this.position.x = 0;
             this.velocity.x = 0;
         }
-
         if (this.position.y > canvas.height + 100) {
             this.resetPosition(100);
         }
@@ -167,6 +165,7 @@ let player = new Player();
 let platforms = [];
 let enemies = [];
 let projectiles = [];
+let goalObject = null;
 let scrollOffset = 0;
 let lastJumpKeyState = false;
 let lastShootKeyState = false;
@@ -178,27 +177,31 @@ function initGame() {
     projectiles = [];
     scrollOffset = 0;
 
-    // 1. 左半分の壁
+    // 左側の進入不可エリア
     platforms.push(new Platform({ x: -2000, y: 0, width: 2000, height: 1000, color: '#0f3460', stroke: false }));
-    // 2. スタート
+    // スタート
     platforms.push(new Platform({ x: 0, y: 500, width: 600, height: 200 }));
-    // 3. 段差
-    platforms.push(new Platform({ x: 600, y: 350, width: 400, height: 350 }));
-    // 4. 低地
+    // 最初の段差 (低め)
+    platforms.push(new Platform({ x: 600, y: 400, width: 400, height: 300 }));
+    // 低地
     platforms.push(new Platform({ x: 1000, y: 550, width: 600, height: 200 }));
-    // 5. 平地+敵
+    // 平地 + 敵
     platforms.push(new Platform({ x: 1600, y: 550, width: 1500, height: 200 }));
     enemies.push(new Enemy(1800, 510, 200, 2));
     enemies.push(new Enemy(2200, 510, 150, 3));
     enemies.push(new Enemy(2500, 510, 200, 4));
     enemies.push(new Enemy(2800, 510, 100, 5));
-    // 6. 階段
+    // 階段 (1段目)
     platforms.push(new Platform({ x: 3100, y: 400, width: 400, height: 300 }));
+    // 階段 (2段目)
     platforms.push(new Platform({ x: 3500, y: 250, width: 400, height: 450 }));
-    // 7. 最終直線
-    platforms.push(new Platform({ x: 3900, y: 250, width: 1000, height: 450 }));
-    // 8. ゴール
-    platforms.push(new Platform({ x: 4800, y: -150, width: 100, height: 400, color: '#ff0000' }));
+    // 階段 (3段目 - さらに高く)
+    platforms.push(new Platform({ x: 3900, y: 100, width: 400, height: 600 }));
+    // 最終最高直線 (しばらく同じ高さ - 6500mまで延長)
+    platforms.push(new Platform({ x: 4300, y: 100, width: 2200, height: 600 }));
+
+    // ゴール (5200m地点に配置)
+    goalObject = { x: 5200, y: -300, width: 100, height: 400, color: '#ff0000' };
 }
 
 function drawInGameArrow(x, y) {
@@ -211,6 +214,19 @@ function drawInGameArrow(x, y) {
     ctx.font = 'bold 120px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('→', x + offset, y);
+    ctx.restore();
+}
+
+function drawJumpHint(x, y) {
+    const time = Date.now() / 200;
+    const jumpY = Math.abs(Math.sin(time)) * -30;
+    ctx.save();
+    ctx.fillStyle = '#e94560';
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = 'white';
+    ctx.font = 'bold 40px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('↑＊２', x, y + jumpY);
     ctx.restore();
 }
 
@@ -228,7 +244,6 @@ function drawCheckpointText(x, y) {
     ctx.restore();
 }
 
-// イベントリスナーの追加
 startBtn.addEventListener('click', () => {
     gameState = 'PLAYING';
     startScreen.classList.add('hidden');
@@ -260,6 +275,15 @@ function animate() {
 
     drawInGameArrow(200, 400);
     drawInGameArrow(1800, 450);
+    drawJumpHint(3050, 380);
+    drawJumpHint(3450, 230);
+    drawJumpHint(3850, 80); // 3段目へのヒント追加
+
+    if (goalObject) {
+        ctx.fillStyle = goalObject.color;
+        ctx.fillRect(goalObject.x, goalObject.y, goalObject.width, goalObject.height);
+        drawCheckpointText(goalObject.x + 50, goalObject.y - 50);
+    }
 
     platforms.forEach(platform => platform.draw());
     enemies.forEach(enemy => {
@@ -293,16 +317,27 @@ function animate() {
     player.onGround = false;
     platforms.forEach(platform => {
         if (
-            player.position.y + player.height >= platform.position.y &&
-            player.position.y <= platform.position.y + platform.height &&
-            player.position.x + player.width >= platform.position.x &&
-            player.position.x <= platform.position.x + platform.width
+            player.position.x < platform.position.x + platform.width &&
+            player.position.x + player.width > platform.position.x &&
+            player.position.y < platform.position.y + platform.height &&
+            player.position.y + player.height > platform.position.y
         ) {
-            if (player.velocity.y > 0 && player.position.y + player.height - player.velocity.y <= platform.position.y) {
+            const prevX = player.position.x - player.velocity.x;
+            const prevY = player.position.y - player.velocity.y;
+            if (prevY + player.height <= platform.position.y) {
                 player.velocity.y = 0;
                 player.onGround = true;
                 player.jumpCount = 0;
                 player.position.y = platform.position.y - player.height;
+            } else if (prevY >= platform.position.y + platform.height) {
+                player.velocity.y = 0;
+                player.position.y = platform.position.y + platform.height;
+            } else if (prevX + player.width <= platform.position.x) {
+                player.velocity.x = 0;
+                player.position.x = platform.position.x - player.width;
+            } else if (prevX >= platform.position.x + platform.width) {
+                player.velocity.x = 0;
+                player.position.x = platform.position.x + platform.width;
             }
         }
     });
@@ -322,13 +357,16 @@ function animate() {
     }
     lastShootKeyState = keys.shoot;
 
-    drawCheckpointText(4850, -200);
     ctx.restore();
 
     stageDisplay.innerText = `STAGE 1`;
     distDisplay.innerText = `${Math.floor(player.position.x)}m`;
 
-    if (player.position.x > 4800) {
+    if (goalObject &&
+        player.position.x < goalObject.x + goalObject.width &&
+        player.position.x + player.width > goalObject.x &&
+        player.position.y < goalObject.y + goalObject.height &&
+        player.position.y + player.height > goalObject.y) {
         ctx.save();
         ctx.fillStyle = '#ffffff';
         ctx.strokeStyle = '#ff0000';
@@ -343,5 +381,5 @@ function animate() {
     }
 }
 
-initGame(); // 初回のみ実行して背景をセット
+initGame();
 animate();
