@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2D Action: ROAD TO STAGE 1000</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #1a1a2e;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+        }
+        canvas {
+            display: block;
+        }
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        .hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        }
+        .goal-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: #f9d371;
+            font-weight: bold;
+            font-size: 1.2rem;
+            text-shadow: 0 0 10px rgba(249, 211, 113, 0.5);
+        }
+        #home-btn {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 2px solid white;
+            border-radius: 30px;
+            cursor: pointer;
+            pointer-events: auto;
+            backdrop-filter: blur(5px);
+            transition: all 0.3s;
+        }
+        #home-btn:hover {
+            background: white;
+            color: #1a1a2e;
+        }
+        #start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(26, 26, 46, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            pointer-events: auto;
+            z-index: 100;
+        }
+        #start-btn {
+            margin-top: 30px;
+            padding: 15px 40px;
+            font-size: 1.5rem;
+            background: #e94560;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(233, 69, 96, 0.4);
+            transition: transform 0.2s;
+        }
+        #start-btn:hover {
+            transform: scale(1.1);
+        }
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div id="start-screen">
+        <h1>ROAD TO STAGE 1000</h1>
+        <p>光の弾を放ち、果てなき道を突き進め</p>
+        <button id="start-btn">ゲーム開始</button>
+        <p style="margin-top: 20px; font-size: 0.8rem; opacity: 0.7;">移動: WASD / 矢印 | ジャンプ: スペース | 攻撃: F / クリック</p>
+    </div>
+
+    <div id="ui-layer">
+        <div class="hud">
+            <div id="stage-display">STAGE 1</div>
+            <div id="dist-display" style="font-size: 0.9rem; opacity: 0.8;">0m</div>
+        </div>
+        <div class="goal-indicator">GOAL: STAGE 1000</div>
+        <button id="home-btn" class="hidden">🏠 タイトルに戻る</button>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+    <script src="game.js"></script>
+</body>
+</html>
